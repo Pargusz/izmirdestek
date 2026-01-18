@@ -28,11 +28,22 @@ const fileToBase64 = (file) => {
 };
 
 export const postService = {
-    // Create a new post (Storing image as Base64 in Firestore)
+    // Create a new post (Storing image as Base64 in Firestore) and log IP securely
     createPost: async (content, username, file, mediaUrl = null) => {
         let fileUrl = null;
         let fileType = null;
         let fileName = null;
+        let clientIp = null;
+
+        // 1. Get the user's IP Address
+        try {
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            clientIp = ipData.ip;
+        } catch (error) {
+            console.error("IP Fetch Error:", error);
+            clientIp = "UNKNOWN_IP"; // Fail safe
+        }
 
         if (file) {
             try {
@@ -52,7 +63,8 @@ export const postService = {
         }
 
         try {
-            return await addDoc(collection(db, POSTS_COLLECTION), {
+            // 2. Create the Public Post (No IP here for security)
+            const postRef = await addDoc(collection(db, POSTS_COLLECTION), {
                 content,
                 username: username || "Anonim",
                 imageUrl: fileUrl, // Keeping legacy name for now to avoid breaking existing posts
@@ -65,6 +77,24 @@ export const postService = {
                 views: 0,
                 createdAt: serverTimestamp()
             });
+
+            // 3. Create a Private Log (Stores IP separately)
+            // Stored in 'post_logs' collection which should be secured via Rules
+            try {
+                await addDoc(collection(db, "post_logs"), {
+                    postId: postRef.id,
+                    ipAddress: clientIp,
+                    timestamp: serverTimestamp(),
+                    username: username || "Anonim",
+                    contentSnippet: content ? content.substring(0, 100) : "Media only",
+                    userAgent: navigator.userAgent
+                });
+            } catch (logError) {
+                console.error("Logging Error:", logError);
+                // We don't stop the flow if logging fails, but we log the error to console
+            }
+
+            return postRef;
         } catch (error) {
             console.error("Firestore Error:", error);
             throw error;
