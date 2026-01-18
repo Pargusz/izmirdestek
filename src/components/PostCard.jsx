@@ -111,19 +111,7 @@ const PostCard = ({ post, onLike, onComment, currentUserId }) => {
                         {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('tr-TR') : 'Şimdi'}
                     </span>
                 </div>
-                {/* Temporary Delete Button for Cleanup */}
-                <button
-                    style={{ marginLeft: 'auto', background: 'red', color: 'white', border: 'none', padding: '5px', borderRadius: '5px', cursor: 'pointer' }}
-                    onClick={async () => {
-                        if (confirm("Silmek istiyor musun?")) {
-                            await postService.deletePost(post.id); // Assuming deletePost exists in service, if not I will add it.
-                            window.location.reload();
-                        }
-                    }}
-                    className="temp-delete-btn"
-                >
-                    Sil
-                </button>
+
             </div>
 
             <div className="post-content">
