@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import { postService } from '../services/postService';
 import PostCard from './PostCard';
 import './PostView.css';
@@ -77,6 +78,26 @@ const PostView = () => {
             <button className="back-btn-top" onClick={() => navigate('/')}>
                 <ArrowLeft size={18} /> Geri Dön
             </button>
+
+            {post && (
+                <Helmet>
+                    <title>{`${post.username} kullanıcısının gönderisi | İzmir Destek`}</title>
+                    <meta name="description" content={post.content.slice(0, 150) + (post.content.length > 150 ? '...' : '')} />
+
+                    {/* Open Graph / Facebook */}
+                    <meta property="og:title" content={`${post.username} kullanıcısının gönderisi`} />
+                    <meta property="og:description" content={post.content.slice(0, 150) + (post.content.length > 150 ? '...' : '')} />
+                    {post.imageUrl && <meta property="og:image" content={post.imageUrl} />}
+                    {post.fileUrl && (post.fileType?.startsWith('image/') || !post.fileType) && <meta property="og:image" content={post.fileUrl} />}
+
+                    {/* Twitter */}
+                    <meta property="twitter:title" content={`${post.username} kullanıcısının gönderisi`} />
+                    <meta property="twitter:description" content={post.content.slice(0, 150) + (post.content.length > 150 ? '...' : '')} />
+                    {post.imageUrl && <meta property="twitter:image" content={post.imageUrl} />}
+                    {post.fileUrl && (post.fileType?.startsWith('image/') || !post.fileType) && <meta property="twitter:image" content={post.fileUrl} />}
+                </Helmet>
+            )}
+
             <PostCard
                 post={post}
                 onLike={handleLike}
