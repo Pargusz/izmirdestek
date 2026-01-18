@@ -88,7 +88,10 @@ const PostCard = ({ post, onLike, onComment, currentUserId }) => {
     const twitterEmbedUrl = getTwitterEmbedUrl(post.mediaUrl);
 
     const handleShare = () => {
-        const shareUrl = `${window.location.origin}/post/${post.id}`;
+        const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+            ? import.meta.env.BASE_URL
+            : `${import.meta.env.BASE_URL}/`;
+        const shareUrl = `${window.location.origin}${baseUrl}post/${post.id}`;
         navigator.clipboard.writeText(shareUrl);
         alert('Bağlantı kopyalandı!');
     };
