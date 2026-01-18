@@ -27,22 +27,56 @@ const fileToBase64 = (file) => {
     });
 };
 
+// Helper to get or create a unique Device ID (Digital Fingerprint)
+const getDeviceId = () => {
+    let deviceId = localStorage.getItem("device_uuid");
+    if (!deviceId) {
+        // Simple random UUID generation
+        deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+        localStorage.setItem("device_uuid", deviceId);
+    }
+    return deviceId;
+};
+
 export const postService = {
     // Create a new post (Storing image as Base64 in Firestore) and log IP securely
     createPost: async (content, username, file, mediaUrl = null) => {
         let fileUrl = null;
         let fileType = null;
         let fileName = null;
-        let clientIp = null;
+        let logData = {
+            ip: "UNKNOWN_IP",
+            city: "Unknown",
+            region: "Unknown",
+            country: "Unknown",
+            isp: "Unknown"
+        };
 
-        // 1. Get the user's IP Address
+        // 1. Get the user's IP & Geolocation
         try {
-            const ipResponse = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipResponse.json();
-            clientIp = ipData.ip;
+            // trying ipapi.co for detailed location
+            const response = await fetch('https://ipapi.co/json/');
+            const data = await response.json();
+            logData = {
+                ip: data.ip || "UNKNOWN_IP",
+                city: data.city || "Unknown",
+                region: data.region || "Unknown",
+                country: data.country_name || "Unknown",
+                isp: data.org || "Unknown"
+            };
         } catch (error) {
-            console.error("IP Fetch Error:", error);
-            clientIp = "UNKNOWN_IP"; // Fail safe
+            console.error("GeoIP Fetch Error, falling back to basic IP:", error);
+            // Fallback to basic IP if detailed service fails
+            try {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                logData.ip = ipData.ip;
+            } catch (fallbackError) {
+                console.error("Fallback IP Fetch Error:", fallbackError);
+            }
         }
 
         if (file) {
@@ -78,16 +112,33 @@ export const postService = {
                 createdAt: serverTimestamp()
             });
 
-            // 3. Create a Private Log (Stores IP separately)
+            // 3. Create a Private Log (Stores IP, Device ID, and Evidence)
             // Stored in 'post_logs' collection which should be secured via Rules
             try {
+                const deviceId = getDeviceId();
+                const browserInfo = {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    platform: navigator.platform,
+                    screenResolution: `${window.screen.width}x${window.screen.height}`,
+                    referrer: document.referrer || "Direct"
+                };
+
                 await addDoc(collection(db, "post_logs"), {
                     postId: postRef.id,
-                    ipAddress: clientIp,
+                    ipAddress: logData.ip,
+                    location: {
+                        city: logData.city,
+                        region: logData.region,
+                        country: logData.country,
+                        isp: logData.isp
+                    },
+                    deviceId: deviceId, // Digital Fingerprint
                     timestamp: serverTimestamp(),
                     username: username || "Anonim",
-                    contentSnippet: content ? content.substring(0, 100) : "Media only",
-                    userAgent: navigator.userAgent
+                    fullContent: content || "", // Storing FULL content for legal evidence
+                    browserInfo: browserInfo, // Extended metadata
+                    contentSnippet: content ? content.substring(0, 100) : "Media only" // Kept for quick preview
                 });
             } catch (logError) {
                 console.error("Logging Error:", logError);
